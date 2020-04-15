@@ -1,5 +1,3 @@
-// https://www.codewars.com/kata/584daf7215ac503d5a0001ae
-
 extern crate regex;
 
 use std::fmt;
@@ -46,6 +44,7 @@ impl fmt::Display for Op {
     }
 }
 
+#[derive(Clone)]
 enum Expr {
     Fnc(Func, Box<Expr>),
     Opr(Op, Box<Expr>, Box<Expr>),
@@ -65,21 +64,25 @@ impl fmt::Display for Expr {
 }
 
 impl Expr {
+    fn fnc(f: Func, e: Expr) -> Expr { Expr::Fnc(f, Box::new(e)) }
+
+    fn opr(o: Op, e1: Expr, e2: Expr) -> Expr { Expr::Opr(o, Box::new(e1), Box::new(e2)) }
+
     fn from_iter(it: &mut dyn Iterator<Item=String>) -> Expr {
         if let Some(token) = it.next() {
             match &token[..] {
                 "(" => Expr::from_iter(it),
-                "+" => Expr::Opr(Op::Add, Box::new(Expr::from_iter(it)), Box::new(Expr::from_iter(it))),
-                "-" => Expr::Opr(Op::Sub, Box::new(Expr::from_iter(it)), Box::new(Expr::from_iter(it))),
-                "*" => Expr::Opr(Op::Mul, Box::new(Expr::from_iter(it)), Box::new(Expr::from_iter(it))),
-                "/" => Expr::Opr(Op::Div, Box::new(Expr::from_iter(it)), Box::new(Expr::from_iter(it))),
-                "^" => Expr::Opr(Op::Pow, Box::new(Expr::from_iter(it)), Box::new(Expr::from_iter(it))),
+                "+" => Expr::opr(Op::Add, Expr::from_iter(it), Expr::from_iter(it)),
+                "-" => Expr::opr(Op::Sub, Expr::from_iter(it), Expr::from_iter(it)),
+                "*" => Expr::opr(Op::Mul, Expr::from_iter(it), Expr::from_iter(it)),
+                "/" => Expr::opr(Op::Div, Expr::from_iter(it), Expr::from_iter(it)),
+                "^" => Expr::opr(Op::Pow, Expr::from_iter(it), Expr::from_iter(it)),
 
-                "cos" => Expr::Fnc(Func::Cos, Box::new(Expr::from_iter(it))),
-                "sin" => Expr::Fnc(Func::Sin, Box::new(Expr::from_iter(it))),
-                "tan" => Expr::Fnc(Func::Tan, Box::new(Expr::from_iter(it))),
-                "exp" => Expr::Fnc(Func::Exp, Box::new(Expr::from_iter(it))),
-                "ln" => Expr::Fnc(Func::Ln, Box::new(Expr::from_iter(it))),
+                "cos" => Expr::fnc(Func::Cos, Expr::from_iter(it)),
+                "sin" => Expr::fnc(Func::Sin, Expr::from_iter(it)),
+                "tan" => Expr::fnc(Func::Tan, Expr::from_iter(it)),
+                "exp" => Expr::fnc(Func::Exp, Expr::from_iter(it)),
+                "ln" => Expr::fnc(Func::Ln, Expr::from_iter(it)),
 
                 "x" => Expr::Var,
 
@@ -87,9 +90,7 @@ impl Expr {
 
                 _ => unreachable!(),
             }
-        } else {
-            unreachable!()
-        }
+        } else { unreachable!() }
     }
 
     pub fn parse(s: &str) -> Expr {
@@ -99,7 +100,6 @@ impl Expr {
         for caps in re.captures_iter(s) {
             vec.push(caps.get(1).unwrap().as_str().to_string());
         }
-        println!("{:?}", vec);
         Self::from_iter(&mut vec.into_iter())
     }
 
@@ -134,7 +134,7 @@ impl Expr {
                     (Op::Pow, Expr::Cnt(n), _) if *n == 1.0 => Expr::Cnt(1.0), // 1 ^e = 0
                     (Op::Pow, Expr::Cnt(n), Expr::Cnt(m)) => Expr::Cnt(n.powf(*m as f64)), // a ^ b
                     // Unsimplifiable operations
-                    _ => Expr::Opr(op.clone(), Box::new(e1), Box::new(e2))
+                    _ => Expr::opr(op.clone(), e1, e2)
                 }
             }
             _ => self.clone()
@@ -146,58 +146,56 @@ impl Expr {
             Expr::Fnc(fun, g) => {
                 let dg = g.derivative();
                 match fun {
-                    Func::Sin => Expr::Opr(Op::Mul,
-                                           Box::new(dg),
-                                           Box::new(Expr::Fnc(Func::Cos, Box::new(*g.clone())))),
-                    Func::Cos => Expr::Opr(Op::Mul,
-                                           Box::new(dg),
-                                           Box::new(Expr::Opr(Op::Mul,
-                                                              Box::new(Expr::Cnt(-1.0)),
-                                                              Box::new(Expr::Fnc(Func::Sin, Box::new(*g.clone())))))),
-                    Func::Tan => Expr::Opr(Op::Mul,
-                                           Box::new(dg),
-                                           Box::new(Expr::Opr(Op::Add,
-                                                              Box::new(Expr::Cnt(1.0)),
-                                                              Box::new(Expr::Opr(Op::Pow,
-                                                                                 Box::new(Expr::Fnc(Func::Tan, Box::new(*g.clone()))),
-                                                                                 Box::new(Expr::Cnt(2.0))))))),
-                    Func::Exp =>
-                        Expr::Opr(Op::Mul, Box::new(dg), Box::new(self.clone())),
-                    Func::Ln => Expr::Opr(Op::Mul,
-                                          Box::new(dg),
-                                          Box::new(Expr::Opr(Op::Div,
-                                                             Box::new(Expr::Cnt(1.0)),
-                                                             Box::new(*g.clone())))),
+                    Func::Sin => Expr::opr(Op::Mul,
+                                           dg,
+                                           Expr::fnc(Func::Cos, *g.clone())),
+                    Func::Cos => Expr::opr(Op::Mul,
+                                           dg,
+                                           Expr::opr(Op::Mul,
+                                                     Expr::Cnt(-1.0),
+                                                     Expr::fnc(Func::Sin, *g.clone()))),
+                    Func::Tan => Expr::opr(Op::Mul,
+                                           dg,
+                                           Expr::opr(Op::Add,
+                                                     Expr::Cnt(1.0),
+                                                     Expr::opr(Op::Pow,
+                                                               Expr::fnc(Func::Tan, *g.clone()),
+                                                               Expr::Cnt(2.0)))),
+                    Func::Exp => Expr::opr(Op::Mul, dg, self.clone()),
+                    Func::Ln => Expr::opr(Op::Mul,
+                                          dg,
+                                          Expr::opr(Op::Div,
+                                                    Expr::Cnt(1.0),
+                                                    *g.clone())),
                 }
             }
             Expr::Opr(op, f, g) => {
                 let (df, dg) = (f.derivative(), g.derivative());
                 match op {
                     // f'(x) + g'(x)
-                    Op::Add => Expr::Opr(Op::Add, Box::new(df), Box::new(dg)),
+                    Op::Add => Expr::opr(Op::Add, df, dg),
                     // f'(x) - g'(x)
-                    Op::Sub => Expr::Opr(Op::Sub, Box::new(df), Box::new(dg)),
+                    Op::Sub => Expr::opr(Op::Sub, df, dg),
                     // f'(x)g(x) + f(x)g'(x)
-                    Op::Mul => Expr::Opr(Op::Add,
-                                         Box::new(Expr::Opr(Op::Mul, Box::new(df), Box::new(*g.clone()))),
-                                         Box::new(Expr::Opr(Op::Mul, Box::new(*f.clone()), Box::new(dg)))),
+                    Op::Mul => Expr::opr(Op::Add,
+                                         Expr::opr(Op::Mul, df, *g.clone()),
+                                         Expr::opr(Op::Mul, *f.clone(), dg)),
                     // f'(x)g(x) - f(x)g'(x) / (g(x))^2
-                    Op::Div => Expr::Opr(Op::Div,
-                                         Box::new(Expr::Opr(Op::Sub,
-                                                            Box::new(Expr::Opr(Op::Mul, Box::new(df), Box::new(*g.clone()))),
-                                                            Box::new(Expr::Opr(Op::Mul, Box::new(*f.clone()), Box::new(dg))))),
-                                         Box::new(Expr::Opr(Op::Pow,
-                                                            Box::new(*g.clone()),
-                                                            Box::new(Expr::Cnt(2.0))))),
-                    Op::Pow => Expr::Opr(Op::Mul,
-                                         Box::new(dg),
-                                         Box::new(Expr::Opr(Op::Mul,
-                                                            Box::new(*g.clone()),
-                                                            Box::new(Expr::Opr(Op::Pow,
-                                                                               Box::new(*f.clone()),
-                                                                               Box::new(Expr::Opr(Op::Sub,
-                                                                                                  Box::new(*g.clone()),
-                                                                                                  Box::new(Expr::Cnt(1.0)))))))))
+                    Op::Div => Expr::opr(Op::Div,
+                                         Expr::opr(Op::Sub,
+                                                   Expr::opr(Op::Mul, df, *g.clone()),
+                                                   Expr::opr(Op::Mul, *f.clone(), dg)),
+                                         Expr::opr(Op::Pow,
+                                                   *g.clone(),
+                                                   Expr::Cnt(2.0))),
+
+                    Op::Pow => Expr::opr(Op::Mul,
+                                         *g.clone(),
+                                         Expr::opr(Op::Pow,
+                                                   *f.clone(),
+                                                   Expr::opr(Op::Sub,
+                                                             *g.clone(),
+                                                             Expr::Cnt(1.0))))
                 }
             }
             Expr::Var => Expr::Cnt(1.0),
