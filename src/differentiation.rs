@@ -204,19 +204,7 @@ impl Expr {
     }
 }
 
-fn cnt() -> i32 {
-    static mut COUNTER: i32 = 0;
-    unsafe {
-        COUNTER += 1;
-        COUNTER
-    }
-}
-
 pub fn diff(expr: &str) -> String {
-    println!("{}", expr);
-    if cnt() > 2 {
-        panic!("Too tired")
-    }
     format!("{}", Expr::parse(expr).derivative().simplify())
 }
 
@@ -225,50 +213,42 @@ mod tests {
     use super::*;
 
     #[test]
-    fn my_test_fixed() {
-        assert_eq!(diff("(exp (*2 x))"), "(* 2 (exp (* 2 x)))");
-//        assert_eq!(diff("(^ x 3)"), "(* 3 (^ x 2))");
-        println!("{}", diff("(^ (sin x) 3)"));
+    fn test_fixed() {
+        assert_eq!(diff("x"), "1");
+        assert_eq!(diff("5"), "0");
+        assert_eq!(diff("(+ x x)"), "2");
+        assert_eq!(diff("(- x x)"), "0");
+        assert_eq!(diff("(* x 2)"), "2");
+        assert_eq!(diff("(/ x 2)"), "0.5");
+        assert_eq!(diff("(^ x 2)"), "(* 2 x)");
+        assert_eq!(diff("(cos x)"), "(* -1 (sin x))");
+        assert_eq!(diff("(sin x)"), "(cos x)");
+        assert_eq!(diff("(tan x)"), "(+ 1 (^ (tan x) 2))");
+        assert_eq!(diff("(exp x)"), "(exp x)");
+        assert_eq!(diff("(ln x)"), "(/ 1 x)");
+        assert_eq!(diff("(+ x (+ x x))"), "3");
+        assert_eq!(diff("(- (+ x x) x)"), "1");
+        assert_eq!(diff("(* 2 (+ x 2))"), "2");
+        assert_eq!(diff("(/ 2 (+ 1 x))"), "(/ -2 (^ (+ 1 x) 2))");
+        assert_eq!(diff("(cos (+ x 1))"), "(* -1 (sin (+ x 1)))");
+
+        let result = diff("(cos (* 2 x))");
+        assert!(
+            result == "(* 2 (* -1 (sin (* 2 x))))".to_string()
+                || result == "(* -2 (sin (* 2 x)))".to_string()
+                || result == "(* (* -1 (sin (* 2 x))) 2)".to_string()
+        );
+
+        assert_eq!(diff("(sin (+ x 1))"), "(cos (+ x 1))");
+        assert_eq!(diff("(sin (* 2 x))"), "(* 2 (cos (* 2 x)))");
+        assert_eq!(diff("(tan (* 2 x))"), "(* 2 (+ 1 (^ (tan (* 2 x)) 2)))");
+        assert_eq!(diff("(exp (* 2 x))"), "(* 2 (exp (* 2 x)))");
+        assert_eq!(diff(&diff("(sin x)")), "(* -1 (sin x))");
+        assert_eq!(diff(&diff("(exp x)")), "(exp x)");
+
+        let result = diff(&diff("(^ x 3)"));
+        assert!(result == "(* 3 (* 2 x))".to_string() || result == "(* 6 x)".to_string());
     }
-
-
-//    #[test]
-//    fn test_fixed() {
-//        assert_eq!(diff("x"), "1");
-//        assert_eq!(diff("5"), "0");
-//        assert_eq!(diff("(+ x x)"), "2");
-//        assert_eq!(diff("(- x x)"), "0");
-//        assert_eq!(diff("(* x 2)"), "2");
-//        assert_eq!(diff("(/ x 2)"), "0.5");
-//        assert_eq!(diff("(^ x 2)"), "(* 2 x)");
-//        assert_eq!(diff("(cos x)"), "(* -1 (sin x))");
-//        assert_eq!(diff("(sin x)"), "(cos x)");
-//        assert_eq!(diff("(tan x)"), "(+ 1 (^ (tan x) 2))");
-//        assert_eq!(diff("(exp x)"), "(exp x)");
-//        assert_eq!(diff("(ln x)"), "(/ 1 x)");
-//        assert_eq!(diff("(+ x (+ x x))"), "3");
-//        assert_eq!(diff("(- (+ x x) x)"), "1");
-//        assert_eq!(diff("(* 2 (+ x 2))"), "2");
-//        assert_eq!(diff("(/ 2 (+ 1 x))"), "(/ -2 (^ (+ 1 x) 2))");
-//        assert_eq!(diff("(cos (+ x 1))"), "(* -1 (sin (+ x 1)))");
-//
-//        let result = diff("(cos (* 2 x))");
-//        assert!(
-//            result == "(* 2 (* -1 (sin (* 2 x))))".to_string()
-//                || result == "(* -2 (sin (* 2 x)))".to_string()
-//                || result == "(* (* -1 (sin (* 2 x))) 2)".to_string()
-//        );
-//
-//        assert_eq!(diff("(sin (+ x 1))"), "(cos (+ x 1))");
-//        assert_eq!(diff("(sin (* 2 x))"), "(* 2 (cos (* 2 x)))");
-//        assert_eq!(diff("(tan (* 2 x))"), "(* 2 (+ 1 (^ (tan (* 2 x)) 2)))");
-//        assert_eq!(diff("(exp (* 2 x))"), "(* 2 (exp (* 2 x)))");
-//        assert_eq!(diff(&diff("(sin x)")), "(* -1 (sin x))");
-//        assert_eq!(diff(&diff("(exp x)")), "(exp x)");
-//
-//        let result = diff(&diff("(^ x 3)"));
-//        assert!(result == "(* 3 (* 2 x))".to_string() || result == "(* 6 x)".to_string());
-//    }
 }
 
 
