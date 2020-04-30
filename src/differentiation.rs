@@ -250,9 +250,3 @@ mod tests {
         assert!(result == "(* 3 (* 2 x))".to_string() || result == "(* 6 x)".to_string());
     }
 }
-
-
-// f(g(x))' = f'(g(x)) ∙ g'(x)
-//
-//Power     x^a     a*x^(a-1)
-//Exp       a^x     a^x*ln a
